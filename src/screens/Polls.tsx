@@ -1,11 +1,42 @@
-import { VStack, Icon } from "native-base";
+import { VStack, Icon, useToast, FlatList } from "native-base";
 import { Octicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Button } from "../components/Button";
 import { Header } from "../components/Header";
+import { api } from "../services/api";
+import { PollCardProps, PollCard } from "../components/PollCard";
+import { Loading } from "../components/Loading";
+import { EmptyPollList } from "../components/EmptyPollList";
 
 export function Polls() {
   const { navigate } = useNavigation();
+  const toast = useToast();
+  const [pollList, setPollList] = useState<PollCardProps[]>([]);
+  const [loadingFetch, setLoadingFetch] = useState(true);
+
+  async function fetchPolls() {
+    try {
+      setLoadingFetch(true);
+      const response = await api.get("polls");
+
+      setPollList(response.data.polls);
+    } catch (error) {
+      return toast.show({
+        title: "Não foi possível carregar os bolões",
+        placement: "top",
+        backgroundColor: "red.500",
+      });
+    } finally {
+      setLoadingFetch(false);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPolls();
+    }, [])
+  );
 
   return (
     <VStack flex={1} bgColor="gray.900">
@@ -27,6 +58,29 @@ export function Polls() {
           onPress={() => navigate("find")}
         />
       </VStack>
+
+      {loadingFetch ? (
+        <Loading />
+      ) : (
+        <FlatList
+          data={pollList}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PollCard
+              data={item}
+              onPress={() =>
+                navigate("details", {
+                  id: item.id,
+                })
+              }
+            />
+          )}
+          px={5}
+          showsVerticalScrollIndicator={false}
+          _contentContainerStyle={{ pb: 10 }}
+          ListEmptyComponent={() => <EmptyPollList />}
+        />
+      )}
     </VStack>
   );
 }
